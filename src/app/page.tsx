@@ -17,9 +17,9 @@ export default function Home() {
     type: "topic" | "revision";
     id: string;
     revIndex?: number;
-    expectedKey: string;
     input: string;
   }>({ isOpen: false, type: "topic", id: "", expectedKey: "", input: "" });
+  const [isDuePanelOpen, setIsDuePanelOpen] = useState(false);
 
   const {
     progress,
@@ -41,19 +41,34 @@ export default function Home() {
 
   // Calculate total due
   const REVISION_INTERVALS = [3, 7, 14, 30, 90];
-  let dueCount = 0;
-  Object.values(progress).forEach((p) => {
-    if (p.completed && p.completionDate) {
-      const revsDone = (p.revisions || [false, false, false, false]).filter(
-        Boolean,
-      ).length;
-      if (revsDone < REVISION_INTERVALS.length) {
-        const nextDue =
-          p.completionDate + REVISION_INTERVALS[revsDone] * 86400000;
-        if (nextDue <= Date.now()) dueCount++;
-      }
-    }
+  const dueItems: { classLevel: string; subjectId: string; subjectName: string; topicId: string; topicName: string; revIndex: number }[] = [];
+  
+  syllabusData.forEach((sClass) => {
+    sClass.subjects.forEach((sub) => {
+      sub.topics.forEach((t) => {
+        const p = progress[t.id];
+        if (p && p.completed && p.completionDate) {
+          const revsDone = (p.revisions || [false, false, false, false]).filter(
+            Boolean,
+          ).length;
+          if (revsDone < REVISION_INTERVALS.length) {
+            const nextDue = p.completionDate + REVISION_INTERVALS[revsDone] * 86400000;
+            if (nextDue <= Date.now()) {
+              dueItems.push({
+                classLevel: sClass.classLevel,
+                subjectId: sub.id,
+                subjectName: sub.name,
+                topicId: t.id,
+                topicName: t.name,
+                revIndex: revsDone
+              });
+            }
+          }
+        }
+      });
+    });
   });
+  const dueCount = dueItems.length;
 
   const getSubjectColor = (subjectName: string) => {
     switch (subjectName.toLowerCase()) {
@@ -197,18 +212,65 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6 w-full sm:w-auto">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-6 w-full sm:w-auto relative">
                 {/* Due Revisions */}
-                <div className="flex items-center justify-between sm:justify-start gap-3 border border-white/10 p-2 px-4 rounded-none h-[42px]">
-                  <span className="text-xs text-gray-500 uppercase tracking-widest">
-                    Due
-                  </span>
-                  <div
-                    className={`flex items-center gap-2 ${dueCount > 0 ? "text-[#ff003c]" : "text-white"}`}
+                <div className="relative">
+                  <button
+                    onClick={() => setIsDuePanelOpen(!isDuePanelOpen)}
+                    className="flex items-center justify-between sm:justify-start gap-3 border border-white/10 p-2 px-4 rounded-none h-[42px] hover:border-white/30 transition-colors w-full sm:w-auto"
                   >
-                    <Bell size={14} />
-                    <span className="font-bold">{dueCount}</span>
-                  </div>
+                    <span className="text-xs text-gray-500 uppercase tracking-widest">
+                      Due
+                    </span>
+                    <div
+                      className={`flex items-center gap-2 ${dueCount > 0 ? "text-[#ff003c]" : "text-white"}`}
+                    >
+                      <Bell size={14} />
+                      <span className="font-bold">{dueCount}</span>
+                    </div>
+                  </button>
+                  
+                  <AnimatePresence>
+                    {isDuePanelOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute top-full mt-2 left-0 sm:left-auto sm:right-0 w-[calc(100vw-3rem)] sm:w-[400px] z-50 bg-[#0a0a0a] border border-white/20 shadow-2xl flex flex-col max-h-[400px]"
+                      >
+                        <div className="p-4 border-b border-white/10 flex justify-between items-center bg-black">
+                          <span className="text-sm font-bold uppercase tracking-widest text-[#ff003c]">Action Required</span>
+                          <button onClick={() => setIsDuePanelOpen(false)} className="text-xs text-gray-500 hover:text-white uppercase tracking-widest">Close</button>
+                        </div>
+                        <div className="overflow-y-auto flex-1 p-2 flex flex-col gap-2">
+                          {dueItems.length === 0 ? (
+                            <div className="p-4 text-center text-xs text-gray-500 uppercase tracking-widest">No revisions due. You are all caught up!</div>
+                          ) : (
+                            dueItems.map(item => (
+                              <button
+                                key={item.topicId}
+                                onClick={() => {
+                                  setSelectedClass(item.classLevel);
+                                  setSelectedSubjectId(item.subjectId);
+                                  setIsDuePanelOpen(false);
+                                  setTimeout(() => {
+                                    document.getElementById(`topic-${item.topicId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                  }, 300);
+                                }}
+                                className="text-left p-3 border border-white/5 hover:border-white/30 bg-black transition-colors flex flex-col gap-2 group/due"
+                              >
+                                <div className="flex justify-between items-start">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 group-hover/due:text-gray-300 transition-colors">{item.subjectName} (Class {item.classLevel})</span>
+                                  <span className="text-[10px] font-bold text-[#ff003c] bg-[#ff003c]/10 px-1 border border-[#ff003c]/20">R{item.revIndex + 1} DUE</span>
+                                </div>
+                                <span className="text-sm font-bold truncate text-white group-hover/due:text-[#ff003c] transition-colors">{item.topicName}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 {/* Subject Selector */}
@@ -274,21 +336,32 @@ export default function Home() {
                       false,
                     ];
                     const isFinalDone = revs[3];
+                    const isTopicDue = dueItems.some(d => d.topicId === topic.id);
+
+                    let wrapperClass = "bg-[#0a0a0a] border-white/10 hover:border-white/30";
+                    if (isFinalDone) {
+                      wrapperClass = "bg-[#111] border-gray-800 text-gray-500";
+                    } else if (isTopicDue) {
+                      wrapperClass = "bg-[#1a0505] border-[#ff003c] hover:border-[#ff003c]/80";
+                    }
 
                     return (
                       <div
+                        id={`topic-${topic.id}`}
                         key={topic.id}
-                        className={`group flex flex-col lg:flex-row lg:items-center justify-between p-4 gap-4 border transition-colors rounded-none ${isFinalDone ? `bg-white/5 ${getSubjectBorderColor(activeSubject.name)}` : "bg-[#0a0a0a] border-white/10 hover:border-white/30"}`}
+                        className={`group flex flex-col lg:flex-row lg:items-center justify-between p-4 gap-4 border transition-colors rounded-none ${wrapperClass}`}
                       >
-                        <div className="flex items-center gap-4">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-gray-600 text-xs w-6 text-right font-bold">
                             {index + 1}.
                           </span>
                           <span
-                            className={`uppercase text-sm tracking-wide transition-colors ${isCompleted ? "text-gray-500 line-through" : "text-white"}`}
+                            className={`uppercase text-sm tracking-wide transition-colors ${isCompleted ? (isFinalDone ? 'text-gray-600' : 'text-gray-500 line-through') : "text-white"}`}
                           >
                             {topic.name}
                           </span>
+                          {isFinalDone && <span className="text-[9px] uppercase tracking-widest border border-gray-700 px-1 py-0.5 text-gray-500 font-bold ml-2">Mastered</span>}
+                          {isTopicDue && <span className="text-[9px] uppercase tracking-widest border border-[#ff003c] bg-[#ff003c]/10 px-1 py-0.5 text-[#ff003c] font-bold ml-2 animate-pulse">Due Now</span>}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-3">
@@ -322,11 +395,11 @@ export default function Home() {
                               {["R1", "R2", "R3", "FINAL"].map((lbl, idx) => {
                                 const revsDone = revs.filter(Boolean).length;
                                 let hint = "";
-                                if (idx === revsDone) {
+                                if (idx >= revsDone) {
                                   const nextDue = progress[topic.id]
                                     ?.completionDate
                                     ? progress[topic.id].completionDate! +
-                                      REVISION_INTERVALS[revsDone] * 86400000
+                                      REVISION_INTERVALS[idx] * 86400000
                                     : null;
                                   const daysLeft = nextDue
                                     ? Math.ceil(
