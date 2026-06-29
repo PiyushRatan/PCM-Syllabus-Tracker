@@ -17,6 +17,7 @@ export default function Home() {
     type: "topic" | "revision";
     id: string;
     revIndex?: number;
+    expectedKey: string;
     input: string;
   }>({ isOpen: false, type: "topic", id: "", expectedKey: "", input: "" });
   const [isDuePanelOpen, setIsDuePanelOpen] = useState(false);
