@@ -9,7 +9,6 @@ import { toast } from 'sonner';
 
 export default function Home() {
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
-  const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [verificationData, setVerificationData] = useState<{
     isOpen: boolean;
@@ -20,7 +19,8 @@ export default function Home() {
     input: string;
   }>({ isOpen: false, type: 'topic', id: '', expectedKey: '', input: '' });
   
-  const { progress, toggleTopic, toggleRevision, forceToggleTopic, forceToggleRevision, mounted } = useSyllabus();
+  const { progress, toggleTopic, toggleRevision, forceToggleTopic, forceToggleRevision, injectMockData, mounted } = useSyllabus();
+  const [showMockButton, setShowMockButton] = useState(true);
 
   if (!mounted) return null; // Avoid hydration mismatch
 
@@ -355,6 +355,18 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {showMockButton && (
+        <button
+          onClick={() => {
+            injectMockData(syllabusData);
+            setShowMockButton(false);
+          }}
+          className="fixed bottom-4 left-4 z-[200] bg-[#ff003c] text-white px-3 py-2 text-[10px] uppercase font-bold tracking-widest border border-white hover:bg-white hover:text-black transition-colors"
+        >
+          Inject Mock Data
+        </button>
+      )}
     </main>
   );
 }
