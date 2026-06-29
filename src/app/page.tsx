@@ -9,9 +9,18 @@ import { toast } from 'sonner';
 
 export default function Home() {
   const [selectedClass, setSelectedClass] = useState<string | null>(null);
+  const [selectedClass, setSelectedClass] = useState<string | null>(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
+  const [verificationData, setVerificationData] = useState<{
+    isOpen: boolean;
+    type: 'topic' | 'revision';
+    id: string;
+    revIndex?: number;
+    expectedKey: string;
+    input: string;
+  }>({ isOpen: false, type: 'topic', id: '', expectedKey: '', input: '' });
   
-  const { progress, toggleTopic, toggleRevision, mounted } = useSyllabus();
+  const { progress, toggleTopic, toggleRevision, forceToggleTopic, forceToggleRevision, mounted } = useSyllabus();
 
   if (!mounted) return null; // Avoid hydration mismatch
 
@@ -215,7 +224,17 @@ export default function Home() {
                           <button 
                             onClick={() => {
                               const res = toggleTopic(topic.id);
-                              if (!res.success) toast.error(res.message);
+                              if (!res.success && res.requiresVerification) {
+                                setVerificationData({
+                                  isOpen: true,
+                                  type: 'topic',
+                                  id: topic.id,
+                                  expectedKey: res.expectedKey!,
+                                  input: ''
+                                });
+                              } else if (!res.success) {
+                                toast.error(res.message);
+                              }
                             }}
                             className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest border transition-all rounded-none ${isCompleted ? 'border-white bg-white text-black' : 'border-white/20 text-gray-400 hover:border-white/50 hover:text-white'}`}
                           >
@@ -243,7 +262,18 @@ export default function Home() {
                                     title={hint ? `Status: ${hint}` : ""}
                                     onClick={() => {
                                       const res = toggleRevision(topic.id, idx);
-                                      if (!res.success) toast.error(res.message);
+                                      if (!res.success && res.requiresVerification) {
+                                        setVerificationData({
+                                          isOpen: true,
+                                          type: 'revision',
+                                          id: topic.id,
+                                          revIndex: idx,
+                                          expectedKey: res.expectedKey!,
+                                          input: ''
+                                        });
+                                      } else if (!res.success) {
+                                        toast.error(res.message);
+                                      }
                                     }}
                                     className={`flex items-center justify-center min-w-[40px] px-2 py-2 text-[10px] font-bold uppercase tracking-widest border transition-all rounded-none ${revs[idx] ? `${getSubjectActiveBg(activeSubject.name)} text-black` : 'border-white/20 text-gray-500 hover:border-white/50 hover:text-white'}`}
                                   >
@@ -260,6 +290,68 @@ export default function Home() {
                 </div>
               </motion.div>
             )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {verificationData.isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-black border border-white p-6 max-w-sm w-full flex flex-col gap-6"
+            >
+              <div className="flex flex-col gap-2 text-center">
+                <h2 className="text-xl font-bold uppercase tracking-widest text-[#ff003c]">Verification Required</h2>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">
+                  Type the code below to confirm undo action.
+                </p>
+              </div>
+              <div className="bg-white/10 p-3 text-center border border-white/20">
+                <span className="text-2xl font-black tracking-widest select-all">{verificationData.expectedKey}</span>
+              </div>
+              <input 
+                type="text" 
+                autoFocus
+                placeholder="Enter security code"
+                value={verificationData.input}
+                onChange={(e) => setVerificationData(prev => ({ ...prev, input: e.target.value.toUpperCase() }))}
+                className="bg-transparent border border-white/30 p-3 text-center uppercase tracking-widest outline-none focus:border-white transition-colors text-xl font-bold"
+              />
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setVerificationData(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 border border-white/30 py-3 uppercase text-xs font-bold tracking-widest hover:bg-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    if (verificationData.input === verificationData.expectedKey) {
+                      if (verificationData.type === 'topic') {
+                        forceToggleTopic(verificationData.id);
+                      } else if (verificationData.type === 'revision' && verificationData.revIndex !== undefined) {
+                        forceToggleRevision(verificationData.id, verificationData.revIndex);
+                      }
+                      setVerificationData(prev => ({ ...prev, isOpen: false }));
+                      toast.success("Action undone successfully.");
+                    } else {
+                      toast.error("Incorrect security code.");
+                    }
+                  }}
+                  className="flex-1 bg-white text-black py-3 uppercase text-xs font-bold tracking-widest hover:bg-gray-200 transition-colors"
+                >
+                  Verify
+                </button>
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>

@@ -53,7 +53,7 @@ export function useSyllabus() {
     }
   }, [progress, mounted]);
 
-  const toggleTopic = (id: string): { success: boolean, message?: string } => {
+  const toggleTopic = (id: string): { success: boolean, message?: string, requiresVerification?: boolean, expectedKey?: string } => {
     const current = progress[id] || { id, completed: false, completionDate: null, revisions: [false, false, false, false] };
     const nowCompleted = !current.completed;
     
@@ -61,10 +61,7 @@ export function useSyllabus() {
       const timePassed = Date.now() - current.completionDate;
       if (timePassed > 20000) {
         const randomKey = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const userInput = window.prompt(`To undo this topic, type this key exactly: ${randomKey}`);
-        if (userInput !== randomKey) {
-          return { success: false, message: "Key did not match. Undo cancelled." };
-        }
+        return { success: false, requiresVerification: true, expectedKey: randomKey };
       }
     }
 
@@ -80,7 +77,22 @@ export function useSyllabus() {
     return { success: true };
   };
 
-  const toggleRevision = (id: string, revIndex: number): { success: boolean, message?: string } => {
+  const forceToggleTopic = (id: string) => {
+    setProgress(prev => {
+      const current = prev[id] || { id, completed: false, completionDate: null, revisions: [false, false, false, false] };
+      return {
+        ...prev,
+        [id]: {
+          ...current,
+          completed: false,
+          completionDate: null,
+          revisions: [false, false, false, false]
+        }
+      };
+    });
+  };
+
+  const toggleRevision = (id: string, revIndex: number): { success: boolean, message?: string, requiresVerification?: boolean, expectedKey?: string } => {
     const current = progress[id];
     if (!current || !current.completed || !current.completionDate) {
       return { success: false, message: "Topic not completed." };
@@ -106,6 +118,9 @@ export function useSyllabus() {
       if (revIndex < 3 && newRevisions[revIndex + 1]) {
         return { success: false, message: "Unmark subsequent revisions first." };
       }
+      // Require verification to unmark a revision
+      const randomKey = Math.random().toString(36).substring(2, 8).toUpperCase();
+      return { success: false, requiresVerification: true, expectedKey: randomKey };
     }
 
     newRevisions[revIndex] = !newRevisions[revIndex];
@@ -120,5 +135,21 @@ export function useSyllabus() {
     return { success: true };
   };
 
-  return { progress, toggleTopic, toggleRevision, mounted };
+  const forceToggleRevision = (id: string, revIndex: number) => {
+    setProgress(prev => {
+      const current = prev[id];
+      if (!current) return prev;
+      const newRevisions = [...current.revisions] as [boolean, boolean, boolean, boolean];
+      newRevisions[revIndex] = false;
+      return {
+        ...prev,
+        [id]: {
+          ...current,
+          revisions: newRevisions
+        }
+      };
+    });
+  };
+
+  return { progress, toggleTopic, toggleRevision, forceToggleTopic, forceToggleRevision, mounted };
 }
