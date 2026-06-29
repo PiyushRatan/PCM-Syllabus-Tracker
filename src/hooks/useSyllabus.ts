@@ -151,43 +151,5 @@ export function useSyllabus() {
     });
   };
 
-  const injectMockData = (syllabusData: any[]) => {
-    const newProgress: Record<string, TopicProgress> = {}; // overwrite for fresh state
-    const REVISION_INTERVALS = [3, 7, 14, 30, 90];
-    
-    syllabusData.forEach(sClass => {
-      sClass.subjects.forEach((subject: any) => {
-        subject.topics.forEach((topic: any) => {
-          if (Math.random() < 0.3) { // 30% chance to complete
-            const daysAgo = Math.floor(Math.random() * 40) + 1;
-            const completionDate = Date.now() - (daysAgo * 86400000);
-            let revs: [boolean, boolean, boolean, boolean] = [false, false, false, false];
-            
-            if (daysAgo >= REVISION_INTERVALS[0]) {
-               if (Math.random() > 0.3) revs[0] = true;
-            }
-            if (revs[0] && daysAgo >= REVISION_INTERVALS[0] + REVISION_INTERVALS[1]) {
-               if (Math.random() > 0.3) revs[1] = true;
-            }
-            if (revs[1] && daysAgo >= REVISION_INTERVALS[0] + REVISION_INTERVALS[1] + REVISION_INTERVALS[2]) {
-               if (Math.random() > 0.3) revs[2] = true;
-            }
-            if (revs[2] && daysAgo >= REVISION_INTERVALS[0] + REVISION_INTERVALS[1] + REVISION_INTERVALS[2] + REVISION_INTERVALS[3]) {
-               if (Math.random() > 0.3) revs[3] = true;
-            }
-
-            newProgress[topic.id] = {
-              id: topic.id,
-              completed: true,
-              completionDate,
-              revisions: revs
-            };
-          }
-        });
-      });
-    });
-    setProgress(newProgress);
-  };
-
-  return { progress, toggleTopic, toggleRevision, forceToggleTopic, forceToggleRevision, injectMockData, mounted };
+  return { progress, toggleTopic, toggleRevision, forceToggleTopic, forceToggleRevision, mounted };
 }
